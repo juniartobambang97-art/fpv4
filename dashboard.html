@@ -94,31 +94,35 @@
 
 <!-- MODAL CHAT & ESCROW -->
 <div class="overlay" id="chatModal">
-  <div class="modal" style="max-width: 500px; height: 85vh; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
-    <!-- Header Modal -->
-    <div style="padding: 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; align-items: center; background: #fff;">
-      <div>
-        <h3 style="margin: 0; font-size: 16px;" id="chatOrderTitle">Order #...</h3>
-        <span id="chatOrderStatus" class="status-badge status-pending" style="font-size: 10px; margin-top: 4px; display: inline-block;">Status</span>
+  <div class="modal" style="max-width: 500px; height: 90vh; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
+    <!-- Header -->
+    <div style="padding: 16px; border-bottom: 1px solid var(--line); background: #fff;">
+      <div style="display: flex; justify-content: space-between; align-items: start;">
+        <div>
+          <h3 style="margin: 0; font-size: 18px;" id="chatOrderTitle">Order #...</h3>
+          <span id="chatOrderStatus" class="status-badge status-pending" style="font-size: 11px; margin-top: 6px; display: inline-block;">Status</span>
+        </div>
+        <button class="btn-ghost btn-sm" onclick="closeModal('chatModal')" style="border-radius: 50%; width: 32px; height: 32px; padding: 0;">✕</button>
       </div>
-      <button class="btn-ghost btn-sm" onclick="closeModal('chatModal')" style="border-radius: 50%; width: 32px; height: 32px; padding: 0;">✕</button>
+      <!-- Progress Bar Escrow -->
+      <div class="escrow-progress" id="escrowProgress" style="margin-top: 12px;">
+        <!-- Diisi oleh JS -->
+      </div>
     </div>
 
-    <!-- Area Chat -->
-    <div id="chatMessages" class="chat-container">
-      <!-- Pesan muncul di sini -->
-    </div>
+    <!-- Chat Area -->
+    <div id="chatMessages" class="chat-container"></div>
 
     <!-- Input Chat -->
-    <form id="chatForm" class="chat-input-area" style="padding: 12px; background: #fff; border-top: 1px solid var(--line);">
-      <input type="text" id="chatInput" placeholder="Ketik pesan atau detail invoice..." required>
+    <form id="chatForm" style="padding: 12px; background: #fff; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: flex-end;">
+      <label for="chatPhoto" class="chat-attach-btn" title="Kirim foto progress">📎</label>
+      <input type="file" id="chatPhoto" accept="image/*" style="display:none">
+      <input type="text" id="chatInput" placeholder="Ketik pesan atau detail invoice..." required style="flex: 1; margin: 0;">
       <button type="submit" class="btn" style="padding: 10px 16px;">Kirim</button>
     </form>
 
-    <!-- Escrow Action Buttons -->
-    <div id="escrowActions" class="escrow-actions" style="padding: 0 12px 16px; background: #fff;">
-      <!-- Tombol dinamis -->
-    </div>
+    <!-- Escrow Actions -->
+    <div id="escrowActions" style="padding: 12px; background: #fff; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"></div>
   </div>
 </div>
 

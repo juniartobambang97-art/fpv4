@@ -7,7 +7,7 @@ let chatRefreshInterval = null;
 async function loadProfile() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return;
-  currentUserId = user.id; // PENTING: Set ID user global
+  currentUserId = user.id;
   const { data } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
   if (data) {
     if (document.getElementById('bizName')) document.getElementById('bizName').value = data.biz_name || '';
@@ -93,7 +93,7 @@ async function deleteProduct(id, imageUrl) {
   toast('🗑️ Produk dihapus.'); loadProducts();
 }
 
-// ---------- PESANAN & ESCROW FLOW ----------
+// ---------- PESANAN & ESCROW ----------
 async function loadOrders() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return;
@@ -158,13 +158,47 @@ async function openChat(orderId) {
     'completed': 'Selesai', 'cancelled': 'Dibatalkan'
   };
   document.getElementById('chatOrderStatus').textContent = statusMap[order.status] || order.status;
+  document.getElementById('chatOrderStatus').className = 'status-badge ' + 
+    (order.status === 'pending' || order.status === 'awaiting_payment' ? 'status-pending' : 
+     order.status === 'cancelled' ? 'status-rejected' : 'status-approved');
+
+  // Render progress bar
+  renderEscrowProgress(order.status);
 
   openModal('chatModal');
   loadMessages(orderId);
   renderEscrowActions(order);
 
   if (chatRefreshInterval) clearInterval(chatRefreshInterval);
-  chatRefreshInterval = setInterval(() => loadMessages(orderId), 3000); // Auto refresh 3 detik
+  chatRefreshInterval = setInterval(() => loadMessages(orderId), 3000);
+}
+
+function renderEscrowProgress(status) {
+  const steps = [
+    { key: 'pending', icon: '1', label: 'Deal' },
+    { key: 'awaiting_payment', icon: '2', label: 'Invoice' },
+    { key: 'paid_escrow', icon: '3', label: 'Escrow' },
+    { key: 'in_progress', icon: '4', label: 'Produksi' },
+    { key: 'completed', icon: '5', label: 'Selesai' }
+  ];
+
+  const statusOrder = ['pending', 'awaiting_payment', 'paid_escrow', 'in_progress', 'completed'];
+  const currentIdx = statusOrder.indexOf(status);
+
+  const box = document.getElementById('escrowProgress');
+  if (!box) return;
+
+  box.innerHTML = steps.map((s, i) => {
+    let cls = '';
+    if (i < currentIdx) cls = 'done';
+    else if (i === currentIdx) cls = 'active';
+    return `
+      <div class="step ${cls}">
+        <div class="step-icon">${cls === 'done' ? '✓' : s.icon}</div>
+        <div class="step-label">${s.label}</div>
+      </div>
+    `;
+  }).join('');
 }
 
 async function loadMessages(orderId) {
@@ -186,15 +220,49 @@ async function loadMessages(orderId) {
       return `<div class="chat-bubble chat-system">${m.message.replace('🔔 [SISTEM] ', '')} <span class="chat-time" style="text-align:center">${time}</span></div>`;
     }
 
+    let photoHtml = '';
+    if (m.photo_url) {
+      photoHtml = `<img src="${m.photo_url}" class="chat-photo" onclick="window.open('${m.photo_url}', '_blank')">`;
+    }
+
     return `
       <div class="chat-bubble ${isMe ? 'chat-me' : 'chat-other'}">
         ${m.message}
+        ${photoHtml}
         <span class="chat-time">${time}</span>
       </div>
     `;
   }).join('');
   
-  box.scrollTop = box.scrollHeight; // Auto scroll ke bawah
+  box.scrollTop = box.scrollHeight;
+}
+
+// Handle foto di chat
+const chatPhotoInput = document.getElementById('chatPhoto');
+let pendingChatPhoto = null;
+if (chatPhotoInput) {
+  chatPhotoInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return toast('Login dulu', 'error');
+
+    toast('📤 Mengupload foto...', 'success');
+    const fileName = `chat/${user.id}/${Date.now()}.${file.name.split('.').pop()}`;
+    const { error: uploadError } = await sb.storage.from('chat-photos').upload(fileName, file, { upsert: true });
+    
+    if (uploadError) {
+      toast('❌ Gagal upload foto', 'error');
+      pendingChatPhoto = null;
+      return;
+    }
+
+    const { data: { publicUrl } } = sb.storage.from('chat-photos').getPublicUrl(fileName);
+    pendingChatPhoto = publicUrl;
+    toast('✅ Foto siap dikirim! Ketik pesan lalu kirim.', 'success');
+    chatPhotoInput.value = ''; // Reset
+  });
 }
 
 const chatForm = document.getElementById('chatForm');
@@ -203,7 +271,7 @@ if (chatForm) {
     e.preventDefault();
     const input = document.getElementById('chatInput');
     const msg = input.value.trim();
-    if (!msg || !activeChatOrderId || !currentUserId) return;
+    if ((!msg && !pendingChatPhoto) || !activeChatOrderId || !currentUserId) return;
 
     const btn = chatForm.querySelector('button');
     btn.disabled = true;
@@ -212,7 +280,8 @@ if (chatForm) {
     const { error } = await sb.from('messages').insert({
       order_id: activeChatOrderId,
       sender_id: currentUserId,
-      message: msg
+      message: msg || '📸 [Foto Progress]',
+      photo_url: pendingChatPhoto
     });
     
     btn.disabled = false;
@@ -221,28 +290,31 @@ if (chatForm) {
     if (error) toast('❌ Gagal kirim', 'error');
     else {
       input.value = '';
+      pendingChatPhoto = null;
       loadMessages(activeChatOrderId);
     }
   });
 }
 
-// ---------- ESCROW ACTION BUTTONS ----------
+// ---------- ESCROW ACTIONS ----------
 function renderEscrowActions(order) {
   const box = document.getElementById('escrowActions');
   const isSeller = order.seller_id === currentUserId;
   let html = '';
 
   if (order.status === 'pending' && isSeller) {
-    html = `<button class="btn btn-sm" onclick="changeOrderStatus('${order.id}', 'awaiting_payment')">✅ Setujui</button>
+    html = `<button class="btn btn-sm" onclick="changeOrderStatus('${order.id}', 'awaiting_payment')">✅ Setujui & Kirim Invoice</button>
             <button class="btn btn-sm btn-danger" onclick="changeOrderStatus('${order.id}', 'cancelled')">❌ Tolak</button>`;
   } else if (order.status === 'awaiting_payment' && !isSeller) {
     html = `<button class="btn btn-sm" style="grid-column: 1/-1; background:#16a34a" onclick="changeOrderStatus('${order.id}', 'paid_escrow')">💰 Bayar ke Escrow</button>`;
   } else if (order.status === 'paid_escrow' && isSeller) {
-    html = `<button class="btn btn-sm" style="grid-column: 1/-1;" onclick="changeOrderStatus('${order.id}', 'in_progress')">🔨 Mulai Pengerjaan</button>`;
+    html = `<button class="btn btn-sm" style="grid-column: 1/-1;" onclick="changeOrderStatus('${order.id}', 'in_progress')">🔨 Mulai Produksi</button>`;
   } else if (order.status === 'in_progress') {
     html = `<button class="btn btn-sm" style="grid-column: 1/-1; background:#16a34a" onclick="changeOrderStatus('${order.id}', 'completed')">🎉 Selesai & Cairkan Dana</button>`;
-  } else {
-    html = `<p style="font-size:12px; color:var(--muted); grid-column: 1/-1; text-align:center;">Transaksi ${order.status === 'completed' ? 'selesai' : 'dibatalkan'}.</p>`;
+  } else if (order.status === 'completed') {
+    html = `<p style="font-size:12px; color:var(--muted); grid-column: 1/-1; text-align:center;">✅ Transaksi selesai. Dana telah dicairkan.</p>`;
+  } else if (order.status === 'cancelled') {
+    html = `<p style="font-size:12px; color:var(--muted); grid-column: 1/-1; text-align:center;">❌ Transaksi dibatalkan.</p>`;
   }
 
   box.innerHTML = html;
@@ -250,10 +322,10 @@ function renderEscrowActions(order) {
 
 async function changeOrderStatus(orderId, newStatus) {
   const confirmMsg = {
-    'awaiting_payment': 'Setujui pesanan dan kirim invoice?',
+    'awaiting_payment': 'Setujui pesanan dan kirim invoice ke pembeli?',
     'paid_escrow': 'Konfirmasi transfer dana ke Escrow?',
-    'in_progress': 'Mulai pengerjaan pesanan?',
-    'completed': 'Konfirmasi selesai & cairkan dana?',
+    'in_progress': 'Mulai produksi pesanan ini?',
+    'completed': 'Konfirmasi selesai & cairkan dana ke penjual?',
     'cancelled': 'Batalkan pesanan?'
   };
   
@@ -265,10 +337,10 @@ async function changeOrderStatus(orderId, newStatus) {
   toast('✅ Status diperbarui!');
   
   const statusText = {
-    'awaiting_payment': 'Pesanan disetujui. Silakan lakukan pembayaran.',
-    'paid_escrow': 'Pembayaran diterima. Dana ditahan di Escrow. Mulai pengerjaan.',
-    'in_progress': 'Pengerjaan dimulai.',
-    'completed': 'Pekerjaan selesai. Dana dicairkan.',
+    'awaiting_payment': 'Pesanan disetujui. Silakan lakukan pembayaran ke Escrow.',
+    'paid_escrow': 'Pembayaran diterima. Dana ditahan di Escrow. Silakan mulai produksi.',
+    'in_progress': 'Produksi dimulai. Kirim foto progress di chat!',
+    'completed': 'Pekerjaan selesai. Dana dicairkan ke penjual.',
     'cancelled': 'Pesanan dibatalkan.'
   };
   
@@ -280,7 +352,15 @@ async function changeOrderStatus(orderId, newStatus) {
   loadOrders();
   if (activeChatOrderId === orderId) {
     const order = currentOrdersData.find(o => o.id === orderId);
-    if (order) renderEscrowActions(order);
+    if (order) {
+      renderEscrowActions(order);
+      renderEscrowProgress(order.status);
+      document.getElementById('chatOrderStatus').textContent = {
+        'pending': 'Menunggu Konfirmasi', 'awaiting_payment': 'Menunggu Pembayaran',
+        'paid_escrow': 'Dana Ditahan (Escrow)', 'in_progress': 'Sedang Dikerjakan',
+        'completed': 'Selesai', 'cancelled': 'Dibatalkan'
+      }[order.status] || order.status;
+    }
     loadMessages(orderId);
   }
 }
