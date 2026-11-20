@@ -12,9 +12,7 @@
 <body>
 
 <header>
-  <div>
-    <h2>Dashboard</h2>
-  </div>
+  <div><h2>Dashboard</h2></div>
   <div style="display:flex; gap:10px;">
     <a href="etalase.html" class="btn btn-sm btn-ghost">Etalase</a>
     <button id="logoutBtn" class="btn btn-logout">Logout</button>
@@ -42,8 +40,6 @@
     <input id="bizName" placeholder="cth: Konveksi Aram">
     <label for="bizAddress">Alamat Bisnis</label>
     <textarea id="bizAddress" placeholder="Alamat lengkap..."></textarea>
-    <label for="bizMaps">Google Maps Location</label>
-    <input id="bizMaps" placeholder="https://maps.google.com/...">
     <button onclick="saveProfile(this)" style="margin-top:14px">💾 Simpan Profil</button>
   </section>
 
@@ -54,10 +50,8 @@
   </section>
 
   <section>
-    <h3>📥 Pesanan & Chat Escrow</h3>
-    <div id="ordersList">
-      <div class="empty"><span>📭</span>Belum ada pesanan masuk.</div>
-    </div>
+    <h3>📥 Pesanan & Chat Produksi</h3>
+    <div id="ordersList"><div class="empty"><span>📭</span>Belum ada pesanan masuk.</div></div>
   </section>
 </main>
 
@@ -70,32 +64,52 @@
       <input type="file" id="pImage" accept="image/*" class="file-input" required>
       <label for="pName">Nama Produk</label>
       <input id="pName" placeholder="cth: Kaos Polos Cotton Combed 30s" required>
-      <label for="pCategory">Kategori Pakaian</label>
+      <label for="pCategory">Kategori</label>
       <select id="pCategory" required>
         <option value="Kaos">Kaos / T-Shirt</option>
         <option value="Kemeja">Kemeja / Shirt</option>
         <option value="Celana">Celana / Pants</option>
-        <option value="Jaket">Jaket / Hoodie / Sweater</option>
-        <option value="Seragam">Seragam / Uniform</option>
-        <option value="Aksesoris">Aksesoris / Topi / Tas</option>
+        <option value="Jaket">Jaket / Hoodie</option>
         <option value="Lainnya">Lainnya</option>
       </select>
       <label for="pPrice">Harga per Pcs (Rp)</label>
       <input id="pPrice" type="number" min="1000" placeholder="45000" required>
-      <label for="pMin">Minimum Order / MOQ (pcs)</label>
+      <label for="pMin">MOQ (pcs)</label>
       <input id="pMin" type="number" min="1" value="100" required>
       <div class="modal-actions">
         <button type="button" class="btn-ghost" onclick="closeModal('productModal')">Batal</button>
-        <button type="submit">Simpan Produk</button>
+        <button type="submit">Simpan</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- MODAL CHAT & ESCROW -->
+<!-- MODAL INPUT QRIS SUPPLIER (KHUSUS KONVEKSI) -->
+<div class="overlay" id="supplierQrisModal">
+  <div class="modal">
+    <h3>🏭 Ajukan Pembayaran ke Toko Bahan</h3>
+    <p style="font-size:13px; color:var(--muted); margin-bottom:12px;">Upload QRIS asli dari toko bahan agar pembeli bisa bayar langsung ke sana. Ini menjamin produksi!</p>
+    <form id="supplierQrisForm">
+      <label for="supName">Nama Toko Bahan</label>
+      <input id="supName" placeholder="cth: Toko Kain Abadi Jaya" required>
+      
+      <label for="supAmount">Nominal yang Harus Dibayar (Rp)</label>
+      <input id="supAmount" type="number" min="1000" placeholder="2000000" required>
+      
+      <label for="supQris">📸 Foto QRIS Toko Bahan</label>
+      <input type="file" id="supQris" accept="image/*" class="file-input" required>
+      
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal('supplierQrisModal')">Batal</button>
+        <button type="submit">Kirim ke Pembeli</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL CHAT -->
 <div class="overlay" id="chatModal">
   <div class="modal" style="max-width: 500px; height: 90vh; display: flex; flex-direction: column; padding: 0; overflow: hidden;">
-    <!-- Header -->
     <div style="padding: 16px; border-bottom: 1px solid var(--line); background: #fff;">
       <div style="display: flex; justify-content: space-between; align-items: start;">
         <div>
@@ -104,29 +118,25 @@
         </div>
         <button class="btn-ghost btn-sm" onclick="closeModal('chatModal')" style="border-radius: 50%; width: 32px; height: 32px; padding: 0;">✕</button>
       </div>
-      <!-- Progress Bar Escrow -->
-      <div class="escrow-progress" id="escrowProgress" style="margin-top: 12px;">
-        <!-- Diisi oleh JS -->
-      </div>
     </div>
 
-    <!-- Chat Area -->
     <div id="chatMessages" class="chat-container"></div>
 
-    <!-- Input Chat -->
     <form id="chatForm" style="padding: 12px; background: #fff; border-top: 1px solid var(--line); display: flex; gap: 8px; align-items: flex-end;">
-      <label for="chatPhoto" class="chat-attach-btn" title="Kirim foto progress">📎</label>
+      <label for="chatPhoto" class="chat-attach-btn" title="Kirim foto">📎</label>
       <input type="file" id="chatPhoto" accept="image/*" style="display:none">
-      <input type="text" id="chatInput" placeholder="Ketik pesan atau detail invoice..." required style="flex: 1; margin: 0;">
+      <input type="text" id="chatInput" placeholder="Ketik pesan..." required style="flex: 1; margin: 0;">
       <button type="submit" class="btn" style="padding: 10px 16px;">Kirim</button>
     </form>
 
-    <!-- Escrow Actions -->
+    <!-- Hidden Inputs -->
+    <input type="file" id="paymentProofInput" accept="image/*" style="display:none">
+    <input type="file" id="productionReceiptInput" accept="image/*" style="display:none">
+
     <div id="escrowActions" style="padding: 12px; background: #fff; border-top: 1px solid var(--line); display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"></div>
   </div>
 </div>
 
-<!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script src="js/ui.js"></script>
