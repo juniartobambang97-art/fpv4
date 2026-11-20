@@ -64,18 +64,31 @@
   <div class="modal">
     <h3>Tambah Produk Baru</h3>
     <form id="productForm">
+      <label for="pImage">📸 Foto Produk</label>
+      <input type="file" id="pImage" accept="image/*" class="file-input" required>
+
       <label for="pName">Nama Produk</label>
-      <input id="pName" placeholder="cth: Kaos Polos Cotton Combed" required>
+      <input id="pName" placeholder="cth: Kaos Polos Cotton Combed 30s" required>
+
+      <label for="pCategory">Kategori Pakaian</label>
+      <select id="pCategory" required>
+        <option value="Kaos">Kaos / T-Shirt</option>
+        <option value="Kemeja">Kemeja / Shirt</option>        <option value="Celana">Celana / Pants</option>
+        <option value="Jaket">Jaket / Hoodie / Sweater</option>
+        <option value="Seragam">Seragam / Uniform</option>
+        <option value="Aksesoris">Aksesoris / Topi / Tas</option>
+        <option value="Lainnya">Lainnya</option>
+      </select>
 
       <label for="pPrice">Harga per Pcs (Rp)</label>
       <input id="pPrice" type="number" min="1000" placeholder="45000" required>
 
-      <label for="pMin">Minimum Order (pcs)</label>
+      <label for="pMin">Minimum Order / MOQ (pcs)</label>
       <input id="pMin" type="number" min="1" value="100" required>
 
       <div class="modal-actions">
         <button type="button" class="btn-ghost" onclick="closeModal('productModal')">Batal</button>
-        <button type="submit">Simpan</button>
+        <button type="submit">Simpan Produk</button>
       </div>
     </form>
   </div>

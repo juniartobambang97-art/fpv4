@@ -12,8 +12,7 @@ async function saveProfile(btn) {
   });
   setLoading(btn, false);
 
-  error ? toast('❌ ' + error.message, 'error')
-        : toast('✅ Profil tersimpan!');
+  error ? toast('❌ ' + error.message, 'error') : toast('✅ Profil tersimpan!');
 }
 
 async function loadProfile() {
@@ -34,22 +33,48 @@ if (productForm) {
   productForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const { data: { user } } = await sb.auth.getUser();
-    if (!user) return;
+    if (!user) return toast('Sesi berakhir', 'error');
 
     const btn = productForm.querySelector('[type=submit]');
-    setLoading(btn, true);
+    const fileInput = document.getElementById('pImage');
+    const file = fileInput.files[0];
+    
+    setLoading(btn, true, 'Mengupload foto...');
 
+    let imageUrl = '';
+    if (file) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await sb.storage
+        .from('product-images')
+        .upload(fileName, file, { upsert: true });
+
+      if (uploadError) {
+        setLoading(btn, false);
+        return toast('❌ Gagal upload foto: ' + uploadError.message, 'error');
+      }
+
+      const { data: { publicUrl } } = sb.storage
+        .from('product-images')
+        .getPublicUrl(fileName);
+      imageUrl = publicUrl;
+    }
+
+    setLoading(btn, true, 'Menyimpan data...');
     const { error } = await sb.from('products').insert({
       owner_id: user.id,
       name: document.getElementById('pName').value.trim(),
+      category: document.getElementById('pCategory').value,
       price: Number(document.getElementById('pPrice').value),
-      min_order: Number(document.getElementById('pMin').value)
+      min_order: Number(document.getElementById('pMin').value),
+      image_url: imageUrl
     });
     setLoading(btn, false);
 
     if (error) return toast('❌ ' + error.message, 'error');
 
-    toast('✅ Produk ditambahkan!');
+    toast('✅ Produk berhasil ditambahkan!');
     productForm.reset();
     document.getElementById('pMin').value = 100;
     closeModal('productModal');
@@ -57,8 +82,17 @@ if (productForm) {
   });
 }
 
-async function deleteProduct(id, btn) {
-  if (!confirm('Hapus produk ini?')) return;
+async function deleteProduct(id, imageUrl, btn) {
+  if (!confirm('Yakin hapus produk ini?')) return;
+  
+  // Hapus foto dari storage kalau ada
+  if (imageUrl && imageUrl.includes('product-images')) {
+    const path = imageUrl.split('/product-images/')[1];
+    if (path) {
+      await sb.storage.from('product-images').remove([path]);
+    }
+  }
+
   const { error } = await sb.from('products').delete().eq('id', id);
   if (error) toast('❌ ' + error.message, 'error');
   else {
@@ -87,10 +121,14 @@ async function loadProducts() {
 
   box.innerHTML = data.map(p => `
     <div class="product">
-      <h4>${p.name}</h4>
+      <img src="${p.image_url || 'https://via.placeholder.com/400x300?text=No+Image'}" class="product-img" alt="${p.name}" onerror="this.src='https://via.placeholder.com/400x300?text=Error+Image'">
+      <div style="display:flex; justify-content:space-between; align-items:start; gap:8px;">
+        <h4 style="margin:0; flex:1;">${p.name}</h4>
+        <span class="cat-badge">${p.category || 'Lainnya'}</span>
+      </div>
       <div class="price">Rp${Number(p.price).toLocaleString('id-ID')}</div>
       <span class="badge">Min. ${p.min_order} pcs</span>
-      <button class="del" onclick="deleteProduct(${p.id})">🗑️ Hapus</button>
+      <button class="del" onclick="deleteProduct(${p.id}, '${p.image_url || ''}')">🗑️ Hapus</button>
     </div>
   `).join('');
 }
