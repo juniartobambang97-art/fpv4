@@ -7,7 +7,7 @@ let chatRefreshInterval = null;
 async function loadProfile() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return;
-  currentUserId = user.id;
+  currentUserId = user.id; // PENTING: Set ID user global
   const { data } = await sb.from('profiles').select('*').eq('id', user.id).maybeSingle();
   if (data) {
     if (document.getElementById('bizName')) document.getElementById('bizName').value = data.biz_name || '';
@@ -93,7 +93,7 @@ async function deleteProduct(id, imageUrl) {
   toast('🗑️ Produk dihapus.'); loadProducts();
 }
 
-// ---------- PESANAN & ESCROW FLOW (DIPERBAIKI) ----------
+// ---------- PESANAN & ESCROW FLOW ----------
 async function loadOrders() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return;
@@ -101,21 +101,12 @@ async function loadOrders() {
   const box = document.getElementById('ordersList');
   if (!box) return;
 
-  console.log('🔍 Memuat pesanan untuk user:', user.id);
-
-  // PERBAIKAN: Hapus join profiles yang error, pakai select sederhana
   const { data, error } = await sb.from('orders')
     .select('*, products(name, price)')
     .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
     .order('created_at', { ascending: false });
 
-  if (error) { 
-    console.error('❌ Error load orders:', error); 
-    box.innerHTML = `<div class="empty"><span>⚠️</span>Gagal memuat: ${error.message}</div>`; 
-    return; 
-  }
-
-  console.log('📦 Data pesanan ditemukan:', data?.length || 0, data);
+  if (error) { console.error('Error load orders:', error); box.innerHTML = '<div class="empty">Gagal memuat.</div>'; return; }
 
   currentOrdersData = data || [];
   const activeCount = currentOrdersData.filter(o => o.status !== 'completed' && o.status !== 'cancelled').length;
@@ -148,7 +139,7 @@ async function loadOrders() {
         </div>
         <p style="font-size:13px; margin:4px 0;"><strong>${isSeller ? 'Pembeli' : 'Penjual'}:</strong> ${otherParty}</p>
         <p style="font-size:13px; margin:4px 0;"><strong>Total:</strong> Rp${Number(o.total_price).toLocaleString('id-ID')}</p>
-        <p style="font-size:11px; color:var(--muted); margin-top:8px;">💬 Klik untuk buka Chat & Eskrow</p>
+        <p style="font-size:11px; color:var(--muted); margin-top:8px;">💬 Klik untuk buka Chat</p>
       </div>
     `;
   }).join('');
@@ -173,7 +164,7 @@ async function openChat(orderId) {
   renderEscrowActions(order);
 
   if (chatRefreshInterval) clearInterval(chatRefreshInterval);
-  chatRefreshInterval = setInterval(() => loadMessages(orderId), 3000);
+  chatRefreshInterval = setInterval(() => loadMessages(orderId), 3000); // Auto refresh 3 detik
 }
 
 async function loadMessages(orderId) {
@@ -181,20 +172,29 @@ async function loadMessages(orderId) {
   const box = document.getElementById('chatMessages');
   if (!box) return;
 
-  box.innerHTML = (data || []).map(m => {
+  if (!data || !data.length) {
+    box.innerHTML = '<div style="text-align:center; color:var(--muted); font-size:13px; margin-top:20px;">Belum ada pesan. Mulai percakapan!</div>';
+    return;
+  }
+
+  box.innerHTML = data.map(m => {
+    const isSystem = m.message.startsWith('🔔 [SISTEM]');
     const isMe = m.sender_id === currentUserId;
     const time = new Date(m.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    
+    if (isSystem) {
+      return `<div class="chat-bubble chat-system">${m.message.replace('🔔 [SISTEM] ', '')} <span class="chat-time" style="text-align:center">${time}</span></div>`;
+    }
+
     return `
-      <div style="display:flex; flex-direction:column; align-items:${isMe ? 'flex-end' : 'flex-start'};">
-        <div style="background:${isMe ? '#2563eb' : '#e2e8f0'}; color:${isMe ? '#fff' : '#0f172a'}; padding:10px 14px; border-radius:12px; max-width:85%; font-size:14px;">
-          ${m.message}
-        </div>
-        <span style="font-size:10px; color:var(--muted); margin-top:2px;">${time} ${isMe ? '• Anda' : ''}</span>
+      <div class="chat-bubble ${isMe ? 'chat-me' : 'chat-other'}">
+        ${m.message}
+        <span class="chat-time">${time}</span>
       </div>
     `;
   }).join('');
   
-  box.scrollTop = box.scrollHeight;
+  box.scrollTop = box.scrollHeight; // Auto scroll ke bawah
 }
 
 const chatForm = document.getElementById('chatForm');
@@ -203,17 +203,22 @@ if (chatForm) {
     e.preventDefault();
     const input = document.getElementById('chatInput');
     const msg = input.value.trim();
-    if (!msg || !activeChatOrderId) return;
+    if (!msg || !activeChatOrderId || !currentUserId) return;
 
-    input.disabled = true;
+    const btn = chatForm.querySelector('button');
+    btn.disabled = true;
+    btn.textContent = '...';
+
     const { error } = await sb.from('messages').insert({
       order_id: activeChatOrderId,
       sender_id: currentUserId,
       message: msg
     });
-    input.disabled = false;
     
-    if (error) toast('❌ Gagal kirim pesan', 'error');
+    btn.disabled = false;
+    btn.textContent = 'Kirim';
+    
+    if (error) toast('❌ Gagal kirim', 'error');
     else {
       input.value = '';
       loadMessages(activeChatOrderId);
@@ -228,16 +233,16 @@ function renderEscrowActions(order) {
   let html = '';
 
   if (order.status === 'pending' && isSeller) {
-    html = `<button class="btn btn-sm" style="flex:1" onclick="changeOrderStatus('${order.id}', 'awaiting_payment')">✅ Setujui & Kirim Invoice</button>
-            <button class="btn btn-sm btn-danger" style="flex:1" onclick="changeOrderStatus('${order.id}', 'cancelled')">❌ Tolak</button>`;
+    html = `<button class="btn btn-sm" onclick="changeOrderStatus('${order.id}', 'awaiting_payment')">✅ Setujui</button>
+            <button class="btn btn-sm btn-danger" onclick="changeOrderStatus('${order.id}', 'cancelled')">❌ Tolak</button>`;
   } else if (order.status === 'awaiting_payment' && !isSeller) {
-    html = `<button class="btn btn-sm" style="flex:1; background:#16a34a" onclick="changeOrderStatus('${order.id}', 'paid_escrow')">💰 Bayar ke Escrow</button>`;
+    html = `<button class="btn btn-sm" style="grid-column: 1/-1; background:#16a34a" onclick="changeOrderStatus('${order.id}', 'paid_escrow')">💰 Bayar ke Escrow</button>`;
   } else if (order.status === 'paid_escrow' && isSeller) {
-    html = `<button class="btn btn-sm" style="flex:1" onclick="changeOrderStatus('${order.id}', 'in_progress')">🔨 Mulai Pengerjaan</button>`;
+    html = `<button class="btn btn-sm" style="grid-column: 1/-1;" onclick="changeOrderStatus('${order.id}', 'in_progress')">🔨 Mulai Pengerjaan</button>`;
   } else if (order.status === 'in_progress') {
-    html = `<button class="btn btn-sm" style="flex:1; background:#16a34a" onclick="changeOrderStatus('${order.id}', 'completed')">🎉 Selesai & Cairkan Dana</button>`;
-  } else if (order.status === 'completed' || order.status === 'cancelled') {
-    html = `<p style="font-size:12px; color:var(--muted); width:100%; text-align:center;">Transaksi ${order.status === 'completed' ? 'selesai' : 'dibatalkan'}. Chat ditutup.</p>`;
+    html = `<button class="btn btn-sm" style="grid-column: 1/-1; background:#16a34a" onclick="changeOrderStatus('${order.id}', 'completed')">🎉 Selesai & Cairkan Dana</button>`;
+  } else {
+    html = `<p style="font-size:12px; color:var(--muted); grid-column: 1/-1; text-align:center;">Transaksi ${order.status === 'completed' ? 'selesai' : 'dibatalkan'}.</p>`;
   }
 
   box.innerHTML = html;
@@ -245,11 +250,11 @@ function renderEscrowActions(order) {
 
 async function changeOrderStatus(orderId, newStatus) {
   const confirmMsg = {
-    'awaiting_payment': 'Setujui pesanan dan kirim invoice ke pembeli?',
-    'paid_escrow': 'Konfirmasi bahwa Anda telah mentransfer dana ke Escrow?',
-    'in_progress': 'Mulai pengerjaan pesanan ini?',
-    'completed': 'Konfirmasi pekerjaan selesai dan cairkan dana ke penjual?',
-    'cancelled': 'Batalkan pesanan ini?'
+    'awaiting_payment': 'Setujui pesanan dan kirim invoice?',
+    'paid_escrow': 'Konfirmasi transfer dana ke Escrow?',
+    'in_progress': 'Mulai pengerjaan pesanan?',
+    'completed': 'Konfirmasi selesai & cairkan dana?',
+    'cancelled': 'Batalkan pesanan?'
   };
   
   if (!confirm(confirmMsg[newStatus])) return;
@@ -260,16 +265,15 @@ async function changeOrderStatus(orderId, newStatus) {
   toast('✅ Status diperbarui!');
   
   const statusText = {
-    'awaiting_payment': 'Pesanan disetujui. Silakan lakukan pembayaran ke Escrow.',
-    'paid_escrow': 'Pembeli telah melakukan pembayaran. Dana ditahan di Escrow. Silakan mulai pengerjaan.',
-    'in_progress': 'Pengerjaan telah dimulai.',
-    'completed': 'Pekerjaan selesai. Dana telah dicairkan ke penjual.',
+    'awaiting_payment': 'Pesanan disetujui. Silakan lakukan pembayaran.',
+    'paid_escrow': 'Pembayaran diterima. Dana ditahan di Escrow. Mulai pengerjaan.',
+    'in_progress': 'Pengerjaan dimulai.',
+    'completed': 'Pekerjaan selesai. Dana dicairkan.',
     'cancelled': 'Pesanan dibatalkan.'
   };
   
   await sb.from('messages').insert({
-    order_id: orderId,
-    sender_id: currentUserId,
+    order_id: orderId, sender_id: currentUserId,
     message: `🔔 [SISTEM] ${statusText[newStatus]}`
   });
 
