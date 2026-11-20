@@ -35,20 +35,50 @@ async function loadDetail() {
     return;
   }
 
-  const { data: product, error } = await sb
-    .from('products')
-    .select('*, profiles(biz_name, biz_address)')
-    .eq('id', productId)
-    .single();
+  const { data: product, error } = await sb.from('products').select('*, profiles(biz_name, biz_address)').eq('id', productId).single();
 
   if (error || !product) {
     document.getElementById('mainContent').innerHTML = '<div class="empty">Produk tidak ditemukan.</div>';
     return;
   }
 
-  // Cek session untuk tombol order
   const { data: { session } } = await sb.auth.getSession();
-  const isLogged = !!session;
+  
+  // 🔒 CEK: Apakah user yang login adalah pemilik produk ini?
+  const isOwner = session && session.user.id === product.owner_id;
+
+  let orderSection = '';
+  if (isOwner) {
+    // Jika pemilik, tampilkan pesan blokir
+    orderSection = `
+      <div class="empty" style="margin-top:16px">
+        <span>🪞</span>
+        <p><strong>Ini adalah produk Anda sendiri.</strong><br>Anda tidak dapat memesan produk sendiri.</p>
+      </div>
+    `;
+  } else if (session) {
+    // Jika user lain yang login, tampilkan form order
+    orderSection = `
+      <form id="orderForm">
+        <label for="qty">Jumlah Pesanan (pcs)</label>
+        <input type="number" id="qty" min="${product.min_order}" value="${product.min_order}" required>
+        <p style="font-size:12px; color:var(--muted); margin-top:4px;">Estimasi Total: <strong id="estTotal">Rp${Number(product.price * product.min_order).toLocaleString('id-ID')}</strong></p>
+
+        <label for="notes" style="margin-top:12px">Catatan untuk Konveksi</label>
+        <textarea id="notes" placeholder="Cth: Warna merah marun, sablon di dada kiri..." rows="3"></textarea>
+
+        <button type="submit" class="btn-block" style="margin-top:16px">📩 Ajukan Pesanan</button>
+      </form>
+    `;
+  } else {
+    // Jika belum login
+    orderSection = `
+      <div class="empty" style="margin-top:16px">
+        <span>🔒</span>
+        <p>Silakan <a href="login.html?redirect=detail.html?id=${productId}">Login</a> untuk mengajukan pesanan.</p>
+      </div>
+    `;
+  }
 
   document.getElementById('mainContent').innerHTML = `
     <section>
@@ -70,43 +100,23 @@ async function loadDetail() {
             <p style="font-size:13px; color:var(--muted); margin:4px 0 0;">${product.profiles?.biz_address || 'Alamat tidak tersedia'}</p>
           </div>
 
-          ${isLogged ? `
-            <form id="orderForm">
-              <label for="qty">Jumlah Pesanan (pcs)</label>
-              <input type="number" id="qty" min="${product.min_order}" value="${product.min_order}" required>
-              <p style="font-size:12px; color:var(--muted); margin-top:4px;">Estimasi Total: <strong id="estTotal">Rp${Number(product.price * product.min_order).toLocaleString('id-ID')}</strong></p>
-
-              <label for="notes" style="margin-top:12px">Catatan untuk Konveksi</label>
-              <textarea id="notes" placeholder="Cth: Warna merah marun, sablon di dada kiri..." rows="3"></textarea>
-
-              <button type="submit" class="btn-block" style="margin-top:16px">📩 Ajukan Pesanan</button>
-            </form>
-          ` : `
-            <div class="empty" style="margin-top:16px">
-              <span>🔒</span>
-              <p>Silakan <a href="login.html?redirect=detail.html?id=${productId}">Login</a> untuk mengajukan pesanan.</p>
-            </div>
-          `}
+          ${orderSection}
         </div>
       </div>
     </section>
   `;
 
-  // Hitung estimasi harga realtime
-  const qtyInput = document.getElementById('qty');
-  if (qtyInput) {
+  // Logic form order (hanya jalan jika bukan owner)
+  if (!isOwner && session) {
+    const qtyInput = document.getElementById('qty');
     qtyInput.addEventListener('input', () => {
       const q = Math.max(product.min_order, Number(qtyInput.value) || product.min_order);
       document.getElementById('estTotal').textContent = 'Rp' + Number(q * product.price).toLocaleString('id-ID');
     });
-  }
 
-  // Handle Submit Order
-  const orderForm = document.getElementById('orderForm');
-  if (orderForm) {
-    orderForm.addEventListener('submit', async (e) => {
+    document.getElementById('orderForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const btn = orderForm.querySelector('button');
+      const btn = e.target.querySelector('button');
       setLoading(btn, true, 'Mengajukan...');
 
       const qty = Number(document.getElementById('qty').value);
@@ -124,10 +134,9 @@ async function loadDetail() {
       });
 
       setLoading(btn, false);
-      if (orderError) {
-        toast('❌ Gagal: ' + orderError.message, 'error');
-      } else {
-        toast('✅ Pesanan berhasil diajukan! Menunggu konfirmasi penjual.');
+      if (orderError) toast('❌ Gagal: ' + orderError.message, 'error');
+      else {
+        toast('✅ Pesanan berhasil diajukan!');
         setTimeout(() => location.href = 'etalase.html', 1500);
       }
     });
