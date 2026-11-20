@@ -52,21 +52,41 @@ if (loginForm) {
 // LOGOUT
 const logoutBtn = document.getElementById('logoutBtn');
 if (logoutBtn) {
-  logoutBtn.addEventListener('click', async () => { await sb.auth.signOut(); location.href = 'index.html'; });
+  logoutBtn.addEventListener('click', async () => { 
+    await sb.auth.signOut(); 
+    location.href = 'index.html'; 
+  });
 }
 
-// DASHBOARD GUARD
+// DASHBOARD GUARD (Bulletproof)
 (async () => {
   if (!location.pathname.includes('dashboard.html')) return;
-  const session = await checkSession();
-  if (!session) { location.href = 'login.html'; return; }
 
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { 
+    location.href = 'login.html'; 
+    return; 
+  }
+
+  // 1. Set User Info (dengan safety check)
   const name = session.user.user_metadata?.full_name || 'User';
-  document.getElementById('userName').textContent = name;
-  document.getElementById('userEmail').textContent = session.user.email;
-  document.getElementById('avatar').textContent = name.charAt(0).toUpperCase();
+  const userNameEl = document.getElementById('userName');
+  const userEmailEl = document.getElementById('userEmail');
+  const avatarEl = document.getElementById('avatar');
 
-  await loadProfile();
-  await loadProducts();
-  await loadOrders(); // <-- TAMBAHAN BARU
+  if (userNameEl) userNameEl.textContent = name;
+  if (userEmailEl) userEmailEl.textContent = session.user.email;
+  if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
+
+  // 2. Load Data secara berurutan dan aman
+  console.log('🔄 Memuat data dashboard...');
+  try {
+    if (typeof loadProfile === 'function') await loadProfile();
+    if (typeof loadProducts === 'function') await loadProducts();
+    if (typeof loadOrders === 'function') await loadOrders();
+    console.log('✅ Dashboard berhasil dimuat!');
+  } catch (err) {
+    console.error('❌ Error saat memuat dashboard:', err);
+    toast('Gagal memuat data. Cek console (F12).', 'error');
+  }
 })();
