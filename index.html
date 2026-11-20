@@ -18,9 +18,9 @@
 </header>
 <main>
   <section class="hero">
-    <h3>Selamat Datang 👋</h3>
-    <p>Kelola konveksimu, tayangkan etalase produk, dan terima pesanan dalam satu tempat.</p>
-    <div class="btn-group">
+    <h3 id="heroTitle">Selamat Datang 👋</h3>
+    <p id="heroDesc">Kelola konveksimu, tayangkan etalase produk, dan terima pesanan dalam satu tempat.</p>
+    <div class="btn-group" id="authButtons">
       <a href="etalase.html" class="btn">🛍️ Lihat Etalase Publik</a>
       <a href="login.html" class="btn btn-ghost">Login / Daftar</a>
     </div>
@@ -28,5 +28,19 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
+<script>
+  // Cek sesi saat halaman dimuat
+  (async () => {
+    const { data } = await sb.auth.getSession();
+    if (data.session) {
+      const name = data.session.user.user_metadata?.full_name || 'User';
+      document.getElementById('heroTitle').textContent = `Halo, ${name}! 👋`;
+      document.getElementById('authButtons').innerHTML = `
+        <a href="etalase.html" class="btn btn-ghost">🛍️ Lihat Etalase</a>
+        <a href="dashboard.html" class="btn">🚀 Ke Dashboard</a>
+      `;
+    }
+  })();
+</script>
 </body>
 </html>

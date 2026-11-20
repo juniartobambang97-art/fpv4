@@ -16,7 +16,9 @@
     <h2>🛍️ Etalase Konveksi</h2>
     <p>Temukan mitra produksi terbaik</p>
   </div>
-  <a href="index.html" class="btn btn-sm btn-ghost">← Kembali</a>
+  <div id="etalaseNav">
+    <!-- Tombol akan diisi otomatis oleh JS -->
+  </div>
 </header>
 
 <main>
@@ -32,6 +34,18 @@
 <script src="js/supabase.js"></script>
 <script src="js/ui.js"></script>
 <script>
+// 1. Atur tombol navigasi berdasarkan status login
+(async () => {
+  const { data } = await sb.auth.getSession();
+  const nav = document.getElementById('etalaseNav');
+  if (data.session) {
+    nav.innerHTML = `<a href="dashboard.html" class="btn btn-sm">🚀 Dashboard</a>`;
+  } else {
+    nav.innerHTML = `<a href="index.html" class="btn btn-sm btn-ghost">← Kembali</a>`;
+  }
+})();
+
+// 2. Load produk
 async function loadEtalase() {
   const { data, error } = await sb
     .from('products')
@@ -40,7 +54,7 @@ async function loadEtalase() {
 
   const grid = document.getElementById('etalaseGrid');
   if (error || !data) {
-    grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Gagal memuat data.</div>';
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Gagal memuat data. Cek koneksi atau SQL RLS.</div>';
     return;
   }
 
