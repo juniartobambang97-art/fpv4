@@ -32,7 +32,7 @@
     </div>
     <div class="stats">
       <span class="chip">📦 <span id="statProducts">0</span> Produk</span>
-      <span class="chip">🧾 <span id="statOrders">0</span> Pesanan Masuk</span>
+      <span class="chip">🧾 <span id="statOrders">0</span> Pesanan Aktif</span>
     </div>
   </section>
 
@@ -54,14 +54,14 @@
   </section>
 
   <section>
-    <h3>📥 Pesanan Masuk</h3>
+    <h3>📥 Pesanan & Chat Escrow</h3>
     <div id="ordersList">
       <div class="empty"><span>📭</span>Belum ada pesanan masuk.</div>
     </div>
   </section>
 </main>
 
-<!-- MODAL TAMBAH PRODUK (Sama seperti sebelumnya) -->
+<!-- MODAL TAMBAH PRODUK -->
 <div class="overlay" id="productModal">
   <div class="modal">
     <h3>Tambah Produk Baru</h3>
@@ -92,6 +92,34 @@
   </div>
 </div>
 
+<!-- MODAL CHAT & ESCROW -->
+<div class="overlay" id="chatModal">
+  <div class="modal" style="max-width: 500px; height: 80vh; display: flex; flex-direction: column;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--line); padding-bottom:12px;">
+      <div>
+        <h3 style="margin:0" id="chatOrderTitle">Order #...</h3>
+        <span id="chatOrderStatus" class="status-badge status-pending">Status</span>
+      </div>
+      <button class="btn-ghost btn-sm" onclick="closeModal('chatModal')">✕</button>
+    </div>
+
+    <!-- Area Chat -->
+    <div id="chatMessages" style="flex:1; overflow-y:auto; padding:10px; background:#f8fafc; border-radius:8px; margin-bottom:12px; display:flex; flex-direction:column; gap:8px;">
+      <!-- Pesan akan muncul di sini -->
+    </div>
+
+    <!-- Input Chat -->
+    <form id="chatForm" style="display:flex; gap:8px;">
+      <input type="text" id="chatInput" placeholder="Ketik pesan atau detail invoice..." required style="margin:0; flex:1;">
+      <button type="submit" class="btn">Kirim</button>
+    </form>
+
+    <!-- Escrow Action Buttons (Dinamis berdasarkan status & role) -->
+    <div id="escrowActions" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;"></div>
+  </div>
+</div>
+
+<!-- SCRIPTS -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
 <script src="js/ui.js"></script>

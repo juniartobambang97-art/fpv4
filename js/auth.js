@@ -1,92 +1,163 @@
+// ---------- AUTH ----------
+let currentUser = null;
+
+async function getDashboardUser() {
+  if (currentUser) return currentUser;
+
+  const { data, error } = await sb.auth.getSession();
+  if (error) throw error;
+
+  const session = data?.session;
+  if (!session?.user) {
+    location.href = 'login.html';
+    return null;
+  }
+
+  currentUser = session.user;
+  return currentUser;
+}
+
 async function checkSession() {
-  const { data } = await sb.auth.getSession();
-  return data.session;
+  const user = await getDashboardUser();
+  return user;
 }
 
 // REGISTER
 const registerForm = document.getElementById('registerForm');
+
 if (registerForm) {
   registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+
     const btn = document.getElementById('regBtn');
     const msg = document.getElementById('msg');
+
     msg.textContent = '';
+
     const fullname = document.getElementById('fullname').value.trim();
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
 
     setLoading(btn, true, 'Mendaftarkan…');
-    const { error } = await sb.auth.signUp({ email, password, options: { data: { full_name: fullname } } });
-    setLoading(btn, false);
 
-    if (error) { msg.textContent = error.message; toast('❌ ' + error.message, 'error'); } 
-    else { toast('✅ Daftar berhasil! Silakan login.'); setTimeout(() => location.href = 'login.html', 1200); }
+    try {
+      const { error } = await sb.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullname } }
+      });
+
+      if (error) throw error;
+
+      toast('✅ Daftar berhasil! Silakan login.');
+      setTimeout(() => location.href = 'login.html', 1200);
+    } catch (err) {
+      msg.textContent = err.message;
+      toast('❌ ' + err.message, 'error');
+    } finally {
+      setLoading(btn, false);
+    }
   });
 }
 
 // LOGIN
 const loginForm = document.getElementById('loginForm');
+
 if (loginForm) {
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
+
     const btn = document.getElementById('loginBtn');
     const msg = document.getElementById('msg');
+
     msg.textContent = '';
+
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
 
     setLoading(btn, true, 'Memverifikasi…');
-    const { data, error } = await sb.auth.signInWithPassword({ email, password });
-    setLoading(btn, false);
 
-    if (error) { msg.textContent = error.message; toast('❌ ' + error.message, 'error'); } 
-    else { 
-      toast('✅ Login berhasil!'); 
-      const urlParams = new URLSearchParams(window.location.search);
-      const redirect = urlParams.get('redirect') || 'dashboard.html';
-      setTimeout(() => location.href = redirect, 800); 
+    try {
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+
+      toast('✅ Login berhasil!');
+
+      const params = new URLSearchParams(location.search);
+      const redirect = params.get('redirect') || 'dashboard.html';
+
+      setTimeout(() => location.href = redirect, 800);
+    } catch (err) {
+      msg.textContent = err.message;
+      toast('❌ ' + err.message, 'error');
+    } finally {
+      setLoading(btn, false);
     }
   });
 }
 
 // LOGOUT
 const logoutBtn = document.getElementById('logoutBtn');
+
 if (logoutBtn) {
-  logoutBtn.addEventListener('click', async () => { 
-    await sb.auth.signOut(); 
-    location.href = 'index.html'; 
+  logoutBtn.addEventListener('click', async () => {
+    try {
+      await sb.auth.signOut();
+    } finally {
+      currentUser = null;
+      location.href = 'index.html';
+    }
   });
 }
 
-// DASHBOARD GUARD (Bulletproof)
+// DASHBOARD
 (async () => {
-  if (!location.pathname.includes('dashboard.html')) return;
+  if (!location.pathname.endsWith('/dashboard.html') &&
+      !location.pathname.endsWith('dashboard.html')) return;
 
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) { 
-    location.href = 'login.html'; 
-    return; 
-  }
+  const loadingTimer = setTimeout(() => {
+    toast('Dashboard masih memuat. Periksa koneksi Supabase.', 'error');
+  }, 10000);
 
-  // 1. Set User Info (dengan safety check)
-  const name = session.user.user_metadata?.full_name || 'User';
-  const userNameEl = document.getElementById('userName');
-  const userEmailEl = document.getElementById('userEmail');
-  const avatarEl = document.getElementById('avatar');
-
-  if (userNameEl) userNameEl.textContent = name;
-  if (userEmailEl) userEmailEl.textContent = session.user.email;
-  if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
-
-  // 2. Load Data secara berurutan dan aman
-  console.log('🔄 Memuat data dashboard...');
   try {
-    if (typeof loadProfile === 'function') await loadProfile();
-    if (typeof loadProducts === 'function') await loadProducts();
-    if (typeof loadOrders === 'function') await loadOrders();
-    console.log('✅ Dashboard berhasil dimuat!');
+    const user = await getDashboardUser();
+    if (!user) return;
+
+    const name = user.user_metadata?.full_name || 'User';
+
+    const nameEl = document.getElementById('userName');
+    const emailEl = document.getElementById('userEmail');
+    const avatarEl = document.getElementById('avatar');
+
+    if (nameEl) nameEl.textContent = name;
+    if (emailEl) emailEl.textContent = user.email || '';
+    if (avatarEl) avatarEl.textContent = name.charAt(0).toUpperCase();
+
+    const tasks = [
+      ['Profil', loadProfile],
+      ['Produk', loadProducts],
+      ['Pesanan', loadOrders]
+    ];
+
+    await Promise.all(tasks.map(async ([label, fn]) => {
+      try {
+        await Promise.race([
+          fn(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Timeout 12 detik')), 12000)
+          )
+        ]);
+      } catch (err) {
+        console.error(`Gagal memuat ${label}:`, err);
+        toast(`${label} gagal dimuat: ${err.message}`, 'error');
+      }
+    }));
+
+    console.log('✅ Proses dashboard selesai.');
   } catch (err) {
-    console.error('❌ Error saat memuat dashboard:', err);
-    toast('Gagal memuat data. Cek console (F12).', 'error');
+    console.error('Dashboard error:', err);
+    toast('Gagal membuka dashboard: ' + err.message, 'error');
+  } finally {
+    clearTimeout(loadingTimer);
   }
 })();
