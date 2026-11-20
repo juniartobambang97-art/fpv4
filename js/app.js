@@ -3,7 +3,7 @@ let currentUserId = null;
 let activeChatOrderId = null;
 let chatRefreshInterval = null;
 
-// ---------- PROFIL & PRODUK (Sama seperti sebelumnya, disingkat) ----------
+// ---------- PROFIL & PRODUK ----------
 async function loadProfile() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return;
@@ -93,7 +93,7 @@ async function deleteProduct(id, imageUrl) {
   toast('🗑️ Produk dihapus.'); loadProducts();
 }
 
-// ---------- PESANAN & ESCROW FLOW ----------
+// ---------- PESANAN & ESCROW FLOW (DIPERBAIKI) ----------
 async function loadOrders() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return;
@@ -101,13 +101,21 @@ async function loadOrders() {
   const box = document.getElementById('ordersList');
   if (!box) return;
 
-  // Ambil pesanan di mana user adalah buyer ATAU seller
+  console.log('🔍 Memuat pesanan untuk user:', user.id);
+
+  // PERBAIKAN: Hapus join profiles yang error, pakai select sederhana
   const { data, error } = await sb.from('orders')
-    .select('*, products(name, price), profiles!orders_seller_id_fkey(biz_name)')
+    .select('*, products(name, price)')
     .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
     .order('created_at', { ascending: false });
 
-  if (error) { console.error(error); box.innerHTML = '<div class="empty">Gagal memuat.</div>'; return; }
+  if (error) { 
+    console.error('❌ Error load orders:', error); 
+    box.innerHTML = `<div class="empty"><span>⚠️</span>Gagal memuat: ${error.message}</div>`; 
+    return; 
+  }
+
+  console.log('📦 Data pesanan ditemukan:', data?.length || 0, data);
 
   currentOrdersData = data || [];
   const activeCount = currentOrdersData.filter(o => o.status !== 'completed' && o.status !== 'cancelled').length;
@@ -120,9 +128,8 @@ async function loadOrders() {
 
   box.innerHTML = currentOrdersData.map(o => {
     const isSeller = o.seller_id === user.id;
-    const otherParty = isSeller ? o.buyer_name : (o.profiles?.biz_name || 'Penjual');
+    const otherParty = isSeller ? o.buyer_name : 'Pembeli';
     
-    // Map status ke bahasa Indonesia & warna
     const statusMap = {
       'pending': { text: 'Menunggu Konfirmasi', class: 'status-pending' },
       'awaiting_payment': { text: 'Menunggu Pembayaran', class: 'status-pending' },
@@ -165,7 +172,6 @@ async function openChat(orderId) {
   loadMessages(orderId);
   renderEscrowActions(order);
 
-  // Auto-refresh chat setiap 3 detik
   if (chatRefreshInterval) clearInterval(chatRefreshInterval);
   chatRefreshInterval = setInterval(() => loadMessages(orderId), 3000);
 }
@@ -253,7 +259,6 @@ async function changeOrderStatus(orderId, newStatus) {
 
   toast('✅ Status diperbarui!');
   
-  // Kirim pesan sistem otomatis ke chat
   const statusText = {
     'awaiting_payment': 'Pesanan disetujui. Silakan lakukan pembayaran ke Escrow.',
     'paid_escrow': 'Pembeli telah melakukan pembayaran. Dana ditahan di Escrow. Silakan mulai pengerjaan.',
