@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#172554">
+  <title>Etalase Konveksi - FPV4</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header>
+  <div>
+    <h2>🛍️ Etalase Konveksi</h2>
+    <p>Temukan mitra produksi terbaik</p>
+  </div>
+  <a href="index.html" class="btn btn-sm btn-ghost">← Kembali</a>
+</header>
+
+<main>
+  <div class="search-bar">
+    <input type="text" id="searchInput" placeholder="Cari produk (cth: Kaos, Jaket)...">
+  </div>
+  <div id="etalaseGrid" class="products">
+    <div class="empty" style="grid-column:1/-1">Memuat produk...</div>
+  </div>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/ui.js"></script>
+<script>
+async function loadEtalase() {
+  const { data, error } = await sb
+    .from('products')
+    .select('*, profiles(biz_name)')
+    .order('created_at', { ascending: false });
+
+  const grid = document.getElementById('etalaseGrid');
+  if (error || !data) {
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Gagal memuat data.</div>';
+    return;
+  }
+
+  if (data.length === 0) {
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1"><span>📦</span>Belum ada produk yang tersedia.</div>';
+    return;
+  }
+
+  const render = (items) => {
+    grid.innerHTML = items.map(p => `
+      <a href="detail.html?id=${p.id}" class="product-card-link">
+        <div class="product">
+          <img src="${p.image_url || 'https://via.placeholder.com/400x300?text=No+Image'}" class="product-img" onerror="this.src='https://via.placeholder.com/400x300?text=Error'">
+          <div style="display:flex; justify-content:space-between; align-items:start; gap:8px;">
+            <h4 style="margin:0; flex:1;">${p.name}</h4>
+            <span class="cat-badge">${p.category || 'Lainnya'}</span>
+          </div>
+          <div class="price">Rp${Number(p.price).toLocaleString('id-ID')}</div>
+          <span class="badge">Min. ${p.min_order} pcs</span>
+          <p style="font-size:12px; color:var(--muted); margin:6px 0 0;">🏭 ${p.profiles?.biz_name || 'Konveksi'}</p>
+        </div>
+      </a>
+    `).join('');
+  };
+
+  render(data);
+
+  // Simple search filter
+  document.getElementById('searchInput').addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase();
+    const filtered = data.filter(p => 
+      p.name.toLowerCase().includes(q) || 
+      (p.category && p.category.toLowerCase().includes(q)) ||
+      (p.profiles?.biz_name && p.profiles.biz_name.toLowerCase().includes(q))
+    );
+    render(filtered);
+  });
+}
+loadEtalase();
+</script>
+</body>
+</html>

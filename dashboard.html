@@ -15,7 +15,10 @@
   <div>
     <h2>Dashboard</h2>
   </div>
-  <button id="logoutBtn" class="btn btn-logout">Logout</button>
+  <div style="display:flex; gap:10px;">
+    <a href="etalase.html" class="btn btn-sm btn-ghost">Lihat Etalase</a>
+    <button id="logoutBtn" class="btn btn-logout">Logout</button>
+  </div>
 </header>
 
 <main>
@@ -29,7 +32,7 @@
     </div>
     <div class="stats">
       <span class="chip">📦 <span id="statProducts">0</span> Produk</span>
-      <span class="chip">🧾 <span id="statOrders">0</span> Pesanan</span>
+      <span class="chip">🧾 <span id="statOrders">0</span> Pesanan Masuk</span>
     </div>
   </section>
 
@@ -37,55 +40,50 @@
     <h3>🏭 Profil Konveksi</h3>
     <label for="bizName">Nama Bisnis</label>
     <input id="bizName" placeholder="cth: Konveksi Aram">
-
     <label for="bizAddress">Alamat Bisnis</label>
     <textarea id="bizAddress" placeholder="Alamat lengkap..."></textarea>
-
     <label for="bizMaps">Google Maps Location</label>
     <input id="bizMaps" placeholder="https://maps.google.com/...">
-
     <button onclick="saveProfile(this)" style="margin-top:14px">💾 Simpan Profil</button>
   </section>
 
   <section>
-    <h3>🛍️ Etalase Produk</h3>
+    <h3>🛍️ Etalase Produk Saya</h3>
     <div id="products" class="products"></div>
     <button class="btn-ghost" onclick="openModal('productModal')" style="margin-top:14px">+ Tambah Produk</button>
   </section>
 
   <section>
-    <h3>🧾 Pesanan Produksi</h3>
-    <div id="orders"><div class="empty"><span>📭</span>Belum ada pesanan masuk.</div></div>
+    <h3>📥 Pesanan Masuk</h3>
+    <div id="ordersList">
+      <div class="empty"><span>📭</span>Belum ada pesanan masuk.</div>
+    </div>
   </section>
 </main>
 
-<!-- MODAL TAMBAH PRODUK -->
+<!-- MODAL TAMBAH PRODUK (Sama seperti sebelumnya) -->
 <div class="overlay" id="productModal">
   <div class="modal">
     <h3>Tambah Produk Baru</h3>
     <form id="productForm">
       <label for="pImage">📸 Foto Produk</label>
       <input type="file" id="pImage" accept="image/*" class="file-input" required>
-
       <label for="pName">Nama Produk</label>
       <input id="pName" placeholder="cth: Kaos Polos Cotton Combed 30s" required>
-
       <label for="pCategory">Kategori Pakaian</label>
       <select id="pCategory" required>
         <option value="Kaos">Kaos / T-Shirt</option>
-        <option value="Kemeja">Kemeja / Shirt</option>        <option value="Celana">Celana / Pants</option>
+        <option value="Kemeja">Kemeja / Shirt</option>
+        <option value="Celana">Celana / Pants</option>
         <option value="Jaket">Jaket / Hoodie / Sweater</option>
         <option value="Seragam">Seragam / Uniform</option>
         <option value="Aksesoris">Aksesoris / Topi / Tas</option>
         <option value="Lainnya">Lainnya</option>
       </select>
-
       <label for="pPrice">Harga per Pcs (Rp)</label>
       <input id="pPrice" type="number" min="1000" placeholder="45000" required>
-
       <label for="pMin">Minimum Order / MOQ (pcs)</label>
       <input id="pMin" type="number" min="1" value="100" required>
-
       <div class="modal-actions">
         <button type="button" class="btn-ghost" onclick="closeModal('productModal')">Batal</button>
         <button type="submit">Simpan Produk</button>
