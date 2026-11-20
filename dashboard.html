@@ -3,44 +3,87 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#172554">
   <title>Dashboard - FPV4</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
 <header>
-  <h2>Dashboard</h2>
-  <button id="logoutBtn" class="btn-logout">Logout</button>
+  <div>
+    <h2>Dashboard</h2>
+  </div>
+  <button id="logoutBtn" class="btn btn-logout">Logout</button>
 </header>
 
 <main>
-  <section class="profile">
-    <h3>Halo, <span id="userName">User</span> 👋</h3>
-    <p id="userEmail"></p>
+  <section>
+    <div class="greet">
+      <div class="avatar" id="avatar">?</div>
+      <div>
+        <h3 style="margin:0">Halo, <span id="userName">User</span> 👋</h3>
+        <p id="userEmail"></p>
+      </div>
+    </div>
+    <div class="stats">
+      <span class="chip">📦 <span id="statProducts">0</span> Produk</span>
+      <span class="chip">🧾 <span id="statOrders">0</span> Pesanan</span>
+    </div>
   </section>
 
   <section>
-    <h3>Profil Konveksi</h3>
-    <input id="bizName" placeholder="Nama bisnis">
-    <textarea id="bizAddress" placeholder="Alamat bisnis"></textarea>
-    <input id="bizMaps" placeholder="Google Maps Location">
-    <button onclick="saveProfile()">Simpan Profil</button>
+    <h3>🏭 Profil Konveksi</h3>
+    <label for="bizName">Nama Bisnis</label>
+    <input id="bizName" placeholder="cth: Konveksi Aram">
+
+    <label for="bizAddress">Alamat Bisnis</label>
+    <textarea id="bizAddress" placeholder="Alamat lengkap..."></textarea>
+
+    <label for="bizMaps">Google Maps Location</label>
+    <input id="bizMaps" placeholder="https://maps.google.com/...">
+
+    <button onclick="saveProfile(this)" style="margin-top:14px">💾 Simpan Profil</button>
   </section>
 
   <section>
-    <h3>Etalase Produk</h3>
+    <h3>🛍️ Etalase Produk</h3>
     <div id="products" class="products"></div>
-    <button onclick="createProduct()">+ Create Product</button>
+    <button class="btn-ghost" onclick="openModal('productModal')" style="margin-top:14px">+ Tambah Produk</button>
   </section>
 
   <section>
-    <h3>Pesanan Produksi</h3>
-    <div id="orders"><p>Belum ada pesanan.</p></div>
+    <h3>🧾 Pesanan Produksi</h3>
+    <div id="orders"><div class="empty"><span>📭</span>Belum ada pesanan masuk.</div></div>
   </section>
 </main>
 
+<!-- MODAL TAMBAH PRODUK -->
+<div class="overlay" id="productModal">
+  <div class="modal">
+    <h3>Tambah Produk Baru</h3>
+    <form id="productForm">
+      <label for="pName">Nama Produk</label>
+      <input id="pName" placeholder="cth: Kaos Polos Cotton Combed" required>
+
+      <label for="pPrice">Harga per Pcs (Rp)</label>
+      <input id="pPrice" type="number" min="1000" placeholder="45000" required>
+
+      <label for="pMin">Minimum Order (pcs)</label>
+      <input id="pMin" type="number" min="1" value="100" required>
+
+      <div class="modal-actions">
+        <button type="button" class="btn-ghost" onclick="closeModal('productModal')">Batal</button>
+        <button type="submit">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabase.js"></script>
+<script src="js/ui.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/app.js"></script>
 </body>

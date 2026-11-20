@@ -1,31 +1,26 @@
-// ============================================
-// APP LOGIC (Profile + Product)
-// ============================================
-
-async function saveProfile() {
+// ---------- PROFIL ----------
+async function saveProfile(btn) {
   const { data: { user } } = await sb.auth.getUser();
-  if (!user) return alert('Login dulu!');
+  if (!user) return toast('Sesi berakhir, login ulang ya', 'error');
 
-  const biz_name = document.getElementById('bizName').value;
-  const biz_address = document.getElementById('bizAddress').value;
-  const biz_maps = document.getElementById('bizMaps').value;
-
+  setLoading(btn, true, 'Menyimpan…');
   const { error } = await sb.from('profiles').upsert({
     id: user.id,
-    biz_name, biz_address, biz_maps
+    biz_name: document.getElementById('bizName').value.trim(),
+    biz_address: document.getElementById('bizAddress').value.trim(),
+    biz_maps: document.getElementById('bizMaps').value.trim()
   });
+  setLoading(btn, false);
 
-  if (error) alert('Gagal simpan: ' + error.message);
-  else alert('✅ Profil tersimpan!');
+  error ? toast('❌ ' + error.message, 'error')
+        : toast('✅ Profil tersimpan!');
 }
 
 async function loadProfile() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return;
-
   const { data } = await sb.from('profiles')
-    .select('*').eq('id', user.id).single();
-
+    .select('*').eq('id', user.id).maybeSingle();
   if (data) {
     document.getElementById('bizName').value = data.biz_name || '';
     document.getElementById('bizAddress').value = data.biz_address || '';
@@ -33,22 +28,43 @@ async function loadProfile() {
   }
 }
 
-async function createProduct() {
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return alert('Login dulu!');
+// ---------- PRODUK ----------
+const productForm = document.getElementById('productForm');
+if (productForm) {
+  productForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
 
-  const name = prompt('Nama produk:');
-  if (!name) return;
-  const price = prompt('Harga per pcs:');
-  const min = prompt('Minimum order (pcs):');
+    const btn = productForm.querySelector('[type=submit]');
+    setLoading(btn, true);
 
-  const { error } = await sb.from('products').insert({
-    owner_id: user.id,
-    name, price: Number(price), min_order: Number(min)
+    const { error } = await sb.from('products').insert({
+      owner_id: user.id,
+      name: document.getElementById('pName').value.trim(),
+      price: Number(document.getElementById('pPrice').value),
+      min_order: Number(document.getElementById('pMin').value)
+    });
+    setLoading(btn, false);
+
+    if (error) return toast('❌ ' + error.message, 'error');
+
+    toast('✅ Produk ditambahkan!');
+    productForm.reset();
+    document.getElementById('pMin').value = 100;
+    closeModal('productModal');
+    loadProducts();
   });
+}
 
-  if (error) alert('Gagal: ' + error.message);
-  else loadProducts();
+async function deleteProduct(id, btn) {
+  if (!confirm('Hapus produk ini?')) return;
+  const { error } = await sb.from('products').delete().eq('id', id);
+  if (error) toast('❌ ' + error.message, 'error');
+  else {
+    toast('🗑️ Produk dihapus.');
+    loadProducts();
+  }
 }
 
 async function loadProducts() {
@@ -56,20 +72,25 @@ async function loadProducts() {
   if (!user) return;
 
   const { data } = await sb.from('products')
-    .select('*').eq('owner_id', user.id);
+    .select('*').eq('owner_id', user.id).order('created_at', { ascending: false });
 
-  const container = document.getElementById('products');
-  if (!container) return;
-  container.innerHTML = '';
+  const box = document.getElementById('products');
+  const stat = document.getElementById('statProducts');
+  if (!box) return;
 
-  (data || []).forEach(p => {
-    const div = document.createElement('div');
-    div.className = 'product';
-    div.innerHTML = `
+  stat.textContent = (data || []).length;
+
+  if (!data || !data.length) {
+    box.innerHTML = '<div class="empty" style="grid-column:1/-1"><span>📦</span>Belum ada produk. Klik "+ Tambah Produk".</div>';
+    return;
+  }
+
+  box.innerHTML = data.map(p => `
+    <div class="product">
       <h4>${p.name}</h4>
-      <p>Harga: Rp${Number(p.price).toLocaleString('id-ID')} / pcs</p>
-      <p>Min: ${p.min_order} pcs</p>
-    `;
-    container.appendChild(div);
-  });
+      <div class="price">Rp${Number(p.price).toLocaleString('id-ID')}</div>
+      <span class="badge">Min. ${p.min_order} pcs</span>
+      <button class="del" onclick="deleteProduct(${p.id})">🗑️ Hapus</button>
+    </div>
+  `).join('');
 }

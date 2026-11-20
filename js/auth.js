@@ -1,7 +1,3 @@
-// ============================================
-// AUTH HANDLER
-// ============================================
-
 async function checkSession() {
   const { data } = await sb.auth.getSession();
   return data.session;
@@ -12,22 +8,27 @@ const registerForm = document.getElementById('registerForm');
 if (registerForm) {
   registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const fullname = document.getElementById('fullname').value;
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+    const btn = document.getElementById('regBtn');
     const msg = document.getElementById('msg');
+    msg.textContent = '';
 
+    const fullname = document.getElementById('fullname').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    setLoading(btn, true, 'Mendaftarkan…');
     const { data, error } = await sb.auth.signUp({
       email, password,
       options: { data: { full_name: fullname } }
     });
+    setLoading(btn, false);
 
     if (error) {
-      msg.textContent = '❌ ' + error.message;
+      msg.textContent = error.message;
+      toast('❌ ' + error.message, 'error');
     } else {
-      msg.style.color = '#16a34a';
-      msg.textContent = '✅ Daftar berhasil! Cek email untuk verifikasi, lalu login.';
-      setTimeout(() => location.href = 'login.html', 2000);
+      toast('✅ Daftar berhasil! Silakan login.');
+      setTimeout(() => location.href = 'login.html', 1200);
     }
   });
 }
@@ -37,17 +38,22 @@ const loginForm = document.getElementById('loginForm');
 if (loginForm) {
   loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+    const btn = document.getElementById('loginBtn');
     const msg = document.getElementById('msg');
+    msg.textContent = '';
 
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+
+    setLoading(btn, true, 'Memverifikasi…');
     const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    setLoading(btn, false);
 
     if (error) {
-      msg.textContent = '❌ ' + error.message;
+      msg.textContent = error.message;
+      toast('❌ ' + error.message, 'error');
     } else {
-      msg.style.color = '#16a34a';
-      msg.textContent = '✅ Login berhasil! Redirecting...';
+      toast('✅ Login berhasil!');
       setTimeout(() => location.href = 'dashboard.html', 800);
     }
   });
@@ -64,17 +70,19 @@ if (logoutBtn) {
 
 // DASHBOARD GUARD
 (async () => {
-  if (location.pathname.includes('dashboard.html')) {
-    const session = await checkSession();
-    if (!session) {
-      alert('Silakan login dulu!');
-      location.href = 'login.html';
-      return;
-    }
-    document.getElementById('userName').textContent =
-      session.user.user_metadata?.full_name || 'User';
-    document.getElementById('userEmail').textContent = session.user.email;
-    loadProfile();
-    loadProducts();
+  if (!location.pathname.includes('dashboard.html')) return;
+
+  const session = await checkSession();
+  if (!session) {
+    location.href = 'login.html';
+    return;
   }
+
+  const name = session.user.user_metadata?.full_name || 'User';
+  document.getElementById('userName').textContent = name;
+  document.getElementById('userEmail').textContent = session.user.email;
+  document.getElementById('avatar').textContent = name.charAt(0).toUpperCase();
+
+  loadProfile();
+  loadProducts();
 })();
